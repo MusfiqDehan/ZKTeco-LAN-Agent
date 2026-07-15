@@ -11,9 +11,8 @@ Package on PyPI: [`zkteco-lan-agent`](https://pypi.org/project/zkteco-lan-agent/
 
 ## Install (gym laptop)
 
-**Use Python 3.10–3.12** (3.12 recommended). Dependency `zk` → `thriftpy2` does not
-ship wheels for Python 3.14, so installs on 3.14 try to compile and fail without
-`Python.h` (`python3-dev`).
+**Use Python 3.10–3.12** (3.12 recommended). The ZKTeco client is PyPI package
+`pyzk` (`from zk import ZK`), not the unrelated `zk` package.
 
 ### With uv (recommended)
 
