@@ -51,18 +51,20 @@ class CommandExecutor:
             log.exception("Command execution failed: %s", exc)
             return 1
 
-    def _with_conn(self, fn: Callable[[Any], int]) -> int:
+    def _with_conn(self, fn: Callable[[Any], int], *, lock_device: bool = True) -> int:
         conn = None
         try:
             conn = self._connect()
-            conn.disable_device()
+            if lock_device:
+                conn.disable_device()
             return fn(conn)
         finally:
             if conn is not None:
-                try:
-                    conn.enable_device()
-                except Exception:
-                    pass
+                if lock_device:
+                    try:
+                        conn.enable_device()
+                    except Exception:
+                        pass
                 try:
                     conn.disconnect()
                 except Exception:
@@ -113,17 +115,28 @@ class CommandExecutor:
 
         def _run(conn: Any) -> int:
             uid = int(pin)
-            # pyzk enroll_user / enroll fingerprint APIs differ by firmware
+            user_id = str(pin)
+            users = conn.get_users() or []
+            if not any(
+                str(getattr(u, "user_id", "")) == user_id or getattr(u, "uid", None) == uid
+                for u in users
+            ):
+                log.error("ENROLL_FP: user PIN=%s not found on device; run USERINFO first", pin)
+                return 1
+            log.info("ENROLL_FP: starting enrollment PIN=%s FID=%s — scan finger on device", pin, fid)
             if hasattr(conn, "enroll_user"):
-                conn.enroll_user(uid)
+                conn.enroll_user(uid=uid, temp_id=fid, user_id=user_id)
+                log.info("ENROLL_FP: enrollment finished PIN=%s FID=%s", pin, fid)
                 return 0
             if hasattr(conn, "enroll_fingerprint"):
                 conn.enroll_fingerprint(uid, fid)
+                log.info("ENROLL_FP: enrollment finished PIN=%s FID=%s", pin, fid)
                 return 0
             log.warning("Device connection has no enroll API; command not executed")
             return 1
 
-        return self._with_conn(_run)
+        # Device must stay enabled so the fingerprint reader accepts scans.
+        return self._with_conn(_run, lock_device=False)
 
     def _exec_query_attlog(self, cmd: str) -> int:
         fields = parse_userinfo_fields(cmd)
