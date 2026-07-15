@@ -33,6 +33,15 @@ def _template_occupied(conn: Any, *, uid: int, fid: int) -> bool:
     return False
 
 
+def _clear_fingerprint_slot(conn: Any, *, uid: int, fid: int) -> bool:
+    """Delete template for uid+fid. Use uid-only API — pyzk TCP user_id path is broken on Py3."""
+    try:
+        return bool(conn.delete_user_template(uid=uid, temp_id=fid))
+    except Exception as exc:
+        log.warning("ENROLL_FP: delete template uid=%s fid=%s failed: %s", uid, fid, exc)
+        return False
+
+
 class CommandExecutor:
     """Map ADMS command strings to pyzk device operations."""
 
@@ -132,20 +141,34 @@ class CommandExecutor:
                 return 1
             if _template_occupied(conn, uid=uid, fid=fid):
                 log.info(
-                    "ENROLL_FP: deleting existing template PIN=%s FID=%s before re-enroll",
+                    "ENROLL_FP: clearing existing template PIN=%s FID=%s before re-enroll",
                     pin,
                     fid,
                 )
-                if not conn.delete_user_template(uid=uid, temp_id=fid, user_id=user_id):
+                if not _clear_fingerprint_slot(conn, uid=uid, fid=fid):
                     log.error(
                         "ENROLL_FP: fingerprint slot %s already used for PIN=%s and could not be cleared",
                         fid,
                         pin,
                     )
                     return 1
+                if _template_occupied(conn, uid=uid, fid=fid):
+                    log.error(
+                        "ENROLL_FP: fingerprint slot %s still occupied for PIN=%s after delete",
+                        fid,
+                        pin,
+                    )
+                    return 1
             log.info("ENROLL_FP: starting enrollment PIN=%s FID=%s — scan finger on device", pin, fid)
             if hasattr(conn, "enroll_user"):
-                conn.enroll_user(uid=uid, temp_id=fid, user_id=user_id)
+                enrolled = conn.enroll_user(uid=uid, temp_id=fid, user_id=user_id)
+                if not enrolled:
+                    log.error(
+                        "ENROLL_FP: no fingerprint captured for PIN=%s FID=%s (timeout or cancelled)",
+                        pin,
+                        fid,
+                    )
+                    return 1
                 log.info("ENROLL_FP: enrollment finished PIN=%s FID=%s", pin, fid)
                 return 0
             if hasattr(conn, "enroll_fingerprint"):
