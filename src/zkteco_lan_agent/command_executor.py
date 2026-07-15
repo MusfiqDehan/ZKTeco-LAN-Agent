@@ -201,8 +201,10 @@ class CommandExecutor:
                 return 1
 
             if not self._push_cdata(build_fp_enrolled_body(pin), "FP"):
-                log.error("ENROLL_FP: failed to push FP table for PIN=%s", pin)
-                return 1
+                log.warning(
+                    "ENROLL_FP: FP push failed for PIN=%s; Fitssort may still complete via devicecmd ack",
+                    pin,
+                )
 
             log.info("ENROLL_FP: enrollment finished PIN=%s FID=%s", pin, fid)
             return 0
