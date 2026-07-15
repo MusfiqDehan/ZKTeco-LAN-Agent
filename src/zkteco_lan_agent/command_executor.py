@@ -4,7 +4,12 @@ import logging
 import re
 from typing import Any, Callable
 
-from zkteco_lan_agent.attendance import build_attlog_body, build_userinfo_body, format_attlog_line
+from zkteco_lan_agent.attendance import (
+    build_attlog_body,
+    build_fp_enrolled_body,
+    build_userinfo_body,
+    format_attlog_line,
+)
 
 log = logging.getLogger("zkteco_lan_agent.commands")
 
@@ -160,23 +165,47 @@ class CommandExecutor:
                     )
                     return 1
             log.info("ENROLL_FP: starting enrollment PIN=%s FID=%s — scan finger on device", pin, fid)
+            enrolled = False
             if hasattr(conn, "enroll_user"):
-                enrolled = conn.enroll_user(uid=uid, temp_id=fid, user_id=user_id)
-                if not enrolled:
-                    log.error(
-                        "ENROLL_FP: no fingerprint captured for PIN=%s FID=%s (timeout or cancelled)",
+                try:
+                    enrolled = bool(conn.enroll_user(uid=uid, temp_id=fid, user_id=user_id))
+                except Exception as exc:
+                    log.warning(
+                        "ENROLL_FP: enroll_user raised for PIN=%s FID=%s: %s",
+                        pin,
+                        fid,
+                        exc,
+                    )
+            elif hasattr(conn, "enroll_fingerprint"):
+                enrolled = bool(conn.enroll_fingerprint(uid, fid))
+            else:
+                log.warning("Device connection has no enroll API; command not executed")
+                return 1
+
+            # pyzk often returns False on F18 even when the device saved the template.
+            if not enrolled:
+                enrolled = _template_occupied(conn, uid=uid, fid=fid)
+                if enrolled:
+                    log.info(
+                        "ENROLL_FP: template detected on device for PIN=%s FID=%s after enroll",
                         pin,
                         fid,
                     )
-                    return 1
-                log.info("ENROLL_FP: enrollment finished PIN=%s FID=%s", pin, fid)
-                return 0
-            if hasattr(conn, "enroll_fingerprint"):
-                conn.enroll_fingerprint(uid, fid)
-                log.info("ENROLL_FP: enrollment finished PIN=%s FID=%s", pin, fid)
-                return 0
-            log.warning("Device connection has no enroll API; command not executed")
-            return 1
+
+            if not enrolled:
+                log.error(
+                    "ENROLL_FP: no fingerprint captured for PIN=%s FID=%s (timeout or cancelled)",
+                    pin,
+                    fid,
+                )
+                return 1
+
+            if not self._push_cdata(build_fp_enrolled_body(pin), "FP"):
+                log.error("ENROLL_FP: failed to push FP table for PIN=%s", pin)
+                return 1
+
+            log.info("ENROLL_FP: enrollment finished PIN=%s FID=%s", pin, fid)
+            return 0
 
         # Device must stay enabled so the fingerprint reader accepts scans.
         return self._with_conn(_run, lock_device=False)
