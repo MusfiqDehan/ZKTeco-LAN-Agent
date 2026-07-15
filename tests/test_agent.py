@@ -16,7 +16,12 @@ from zkteco_lan_agent.attendance import (
     format_attlog_line,
 )
 from zkteco_lan_agent.config import ConfigError, parse_config
-from zkteco_lan_agent.command_executor import CommandExecutor, parse_userinfo_fields
+from zkteco_lan_agent.command_executor import (
+    CommandExecutor,
+    _clear_fingerprint_slot,
+    _template_occupied,
+    parse_userinfo_fields,
+)
 
 
 class ConfigTests(unittest.TestCase):
@@ -105,7 +110,7 @@ class EnrollCommandTests(unittest.TestCase):
         user = unittest.mock.MagicMock(user_id="2", uid=2)
         template = unittest.mock.MagicMock(uid=2, fid=0)
         conn.get_users.return_value = [user]
-        conn.get_templates.return_value = [template]
+        conn.get_templates.side_effect = [[template], []]
         conn.delete_user_template.return_value = True
         conn.enroll_user.return_value = True
         executor = CommandExecutor(lambda: conn, lambda _body, _table: True)
@@ -113,8 +118,16 @@ class EnrollCommandTests(unittest.TestCase):
         rc = executor.execute("ENROLL_FP PIN=2\tFID=0")
 
         self.assertEqual(rc, 0)
-        conn.delete_user_template.assert_called_once_with(uid=2, temp_id=0, user_id="2")
+        conn.delete_user_template.assert_called_once_with(uid=2, temp_id=0)
         conn.enroll_user.assert_called_once_with(uid=2, temp_id=0, user_id="2")
+
+    def test_clear_fingerprint_slot_uses_uid_only_delete(self):
+        conn = unittest.mock.MagicMock()
+        conn.delete_user_template.return_value = True
+
+        self.assertTrue(_clear_fingerprint_slot(conn, uid=2, fid=0))
+
+        conn.delete_user_template.assert_called_once_with(uid=2, temp_id=0)
 
     def test_enroll_fp_fails_when_user_missing(self):
         conn = unittest.mock.MagicMock()
