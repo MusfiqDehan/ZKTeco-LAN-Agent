@@ -3,10 +3,10 @@ name = "zkteco-lan-agent"
 version = "1.0.0"
 description = "Bridge non-ADMS ZKTeco devices to Fitssort ADMS HTTP (attendance, commands, enroll)"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.10,<3.14"
 license = { text = "Proprietary" }
 authors = [
-  { name = "GeeksSort / Fitssort" },
+  { name = "Md. Musfiqur Rahaman / MusfiqDehan" },
 ]
 keywords = ["zkteco", "adms", "attendance", "fitssort", "biometric"]
 classifiers = [
@@ -17,7 +17,6 @@ classifiers = [
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
-  "Programming Language :: Python :: 3.13",
   "Topic :: System :: Networking",
 ]
 dependencies = [
@@ -26,13 +25,13 @@ dependencies = [
   "PyYAML>=6.0",
 ]
 
-# Note: dependency `zk` pulls in `thriftpy2`, which needs a C compiler + Python
-# headers on first install (Linux: sudo apt install python3-dev build-essential).
+# Note: dependency `zk` → `thriftpy2` has no wheels for Python 3.14 yet.
+# Prefer Python 3.12. If you must compile: sudo apt install python3-dev build-essential
 
 [project.urls]
-Homepage = "https://github.com/GeeksSort/Gym-Management-System-SaaS"
-Documentation = "https://github.com/GeeksSort/Gym-Management-System-SaaS/blob/main/zkteco_lan_agent/README.md"
-Repository = "https://github.com/GeeksSort/Gym-Management-System-SaaS"
+Homepage = "https://github.com/MusfiqDehan/zkteco_lan_agent"
+Documentation = "https://github.com/MusfiqDehan/zkteco_lan_agent/README.md"
+Repository = "https://github.com/MusfiqDehan/zkteco_lan_agent"
 
 [project.scripts]
 zkteco-lan-agent = "zkteco_lan_agent.__main__:main"
