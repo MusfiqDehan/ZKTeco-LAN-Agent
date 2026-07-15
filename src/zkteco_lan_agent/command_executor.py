@@ -26,6 +26,13 @@ def parse_userinfo_fields(cmd: str) -> dict[str, str]:
     return fields
 
 
+def _template_occupied(conn: Any, *, uid: int, fid: int) -> bool:
+    for template in conn.get_templates() or []:
+        if getattr(template, "uid", None) == uid and getattr(template, "fid", None) == fid:
+            return True
+    return False
+
+
 class CommandExecutor:
     """Map ADMS command strings to pyzk device operations."""
 
@@ -123,6 +130,19 @@ class CommandExecutor:
             ):
                 log.error("ENROLL_FP: user PIN=%s not found on device; run USERINFO first", pin)
                 return 1
+            if _template_occupied(conn, uid=uid, fid=fid):
+                log.info(
+                    "ENROLL_FP: deleting existing template PIN=%s FID=%s before re-enroll",
+                    pin,
+                    fid,
+                )
+                if not conn.delete_user_template(uid=uid, temp_id=fid, user_id=user_id):
+                    log.error(
+                        "ENROLL_FP: fingerprint slot %s already used for PIN=%s and could not be cleared",
+                        fid,
+                        pin,
+                    )
+                    return 1
             log.info("ENROLL_FP: starting enrollment PIN=%s FID=%s — scan finger on device", pin, fid)
             if hasattr(conn, "enroll_user"):
                 conn.enroll_user(uid=uid, temp_id=fid, user_id=user_id)
