@@ -77,6 +77,13 @@ class CommandParseTests(unittest.TestCase):
         self.assertEqual(fields["Card"], "RFID-9")
         self.assertEqual(fields["Name"], "Jane")
 
+    def test_parse_userinfo_empty_card(self):
+        fields = parse_userinfo_fields(
+            "DATA UPDATE USERINFO PIN=2\tName=Bob\tCard=\tPri=0"
+        )
+        self.assertEqual(fields["PIN"], "2")
+        self.assertEqual(fields["Card"], "")
+
 
 if __name__ == "__main__":
     unittest.main()
