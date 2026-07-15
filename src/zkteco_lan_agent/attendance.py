@@ -34,6 +34,11 @@ def build_userinfo_body(rows: list[dict]) -> str:
     return "\n".join(lines)
 
 
+def build_fp_enrolled_body(pin: str) -> str:
+    """Notify Fitssort that a fingerprint template exists for this PIN."""
+    return f"TABLE=FP\nPIN={pin}"
+
+
 VERIFY_FINGERPRINT = 1
 VERIFY_CARD = 2
 VERIFY_PASSWORD = 0
