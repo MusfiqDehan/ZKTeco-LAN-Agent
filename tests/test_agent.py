@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import sys
 import unittest
+import unittest.mock
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -15,7 +16,7 @@ from zkteco_lan_agent.attendance import (
     format_attlog_line,
 )
 from zkteco_lan_agent.config import ConfigError, parse_config
-from zkteco_lan_agent.command_executor import parse_userinfo_fields
+from zkteco_lan_agent.command_executor import CommandExecutor, parse_userinfo_fields
 
 
 class ConfigTests(unittest.TestCase):
@@ -83,6 +84,31 @@ class CommandParseTests(unittest.TestCase):
         )
         self.assertEqual(fields["PIN"], "2")
         self.assertEqual(fields["Card"], "")
+
+
+class EnrollCommandTests(unittest.TestCase):
+    def test_enroll_fp_keeps_device_enabled_and_passes_pin(self):
+        conn = unittest.mock.MagicMock()
+        user = unittest.mock.MagicMock(user_id="2", uid=2)
+        conn.get_users.return_value = [user]
+        conn.enroll_user.return_value = True
+        executor = CommandExecutor(lambda: conn, lambda _body, _table: True)
+
+        rc = executor.execute("ENROLL_FP PIN=2\tFID=0")
+
+        self.assertEqual(rc, 0)
+        conn.disable_device.assert_not_called()
+        conn.enroll_user.assert_called_once_with(uid=2, temp_id=0, user_id="2")
+
+    def test_enroll_fp_fails_when_user_missing(self):
+        conn = unittest.mock.MagicMock()
+        conn.get_users.return_value = []
+        executor = CommandExecutor(lambda: conn, lambda _body, _table: True)
+
+        rc = executor.execute("ENROLL_FP PIN=2\tFID=0")
+
+        self.assertEqual(rc, 1)
+        conn.enroll_user.assert_not_called()
 
 
 if __name__ == "__main__":
