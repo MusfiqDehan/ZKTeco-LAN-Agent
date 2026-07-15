@@ -12,6 +12,7 @@ if str(SRC) not in sys.path:
 
 from zkteco_lan_agent.attendance import (
     build_attlog_body,
+    build_fp_enrolled_body,
     entry_method_for_verify,
     format_attlog_line,
 )
@@ -68,6 +69,10 @@ class AttlogFormatTests(unittest.TestCase):
         body = build_attlog_body(["1001\t2026-01-11 10:12:30\t0\t1\t0\t0"])
         self.assertTrue(body.startswith("TABLE=ATTLOG\n"))
 
+    def test_fp_enrolled_body(self):
+        body = build_fp_enrolled_body("42")
+        self.assertEqual(body, "TABLE=FP\nPIN=42")
+
     def test_entry_method_mapping(self):
         self.assertEqual(entry_method_for_verify(2), "card")
         self.assertEqual(entry_method_for_verify(1), "fingerprint")
@@ -96,14 +101,38 @@ class EnrollCommandTests(unittest.TestCase):
         conn = unittest.mock.MagicMock()
         user = unittest.mock.MagicMock(user_id="2", uid=2)
         conn.get_users.return_value = [user]
+        conn.get_templates.return_value = []
         conn.enroll_user.return_value = True
-        executor = CommandExecutor(lambda: conn, lambda _body, _table: True)
+        pushed: list[tuple[str, str]] = []
+        executor = CommandExecutor(
+            lambda: conn,
+            lambda body, table: pushed.append((body, table)) or True,
+        )
 
         rc = executor.execute("ENROLL_FP PIN=2\tFID=0")
 
         self.assertEqual(rc, 0)
         conn.disable_device.assert_not_called()
         conn.enroll_user.assert_called_once_with(uid=2, temp_id=0, user_id="2")
+        self.assertEqual(pushed, [("TABLE=FP\nPIN=2", "FP")])
+
+    def test_enroll_fp_succeeds_when_template_saved_despite_false_return(self):
+        conn = unittest.mock.MagicMock()
+        user = unittest.mock.MagicMock(user_id="2", uid=2)
+        template = unittest.mock.MagicMock(uid=2, fid=0)
+        conn.get_users.return_value = [user]
+        conn.get_templates.side_effect = [[], [template]]
+        conn.enroll_user.return_value = False
+        pushed: list[tuple[str, str]] = []
+        executor = CommandExecutor(
+            lambda: conn,
+            lambda body, table: pushed.append((body, table)) or True,
+        )
+
+        rc = executor.execute("ENROLL_FP PIN=2\tFID=0")
+
+        self.assertEqual(rc, 0)
+        self.assertEqual(pushed, [("TABLE=FP\nPIN=2", "FP")])
 
     def test_enroll_fp_deletes_existing_template_before_enroll(self):
         conn = unittest.mock.MagicMock()
@@ -113,13 +142,18 @@ class EnrollCommandTests(unittest.TestCase):
         conn.get_templates.side_effect = [[template], []]
         conn.delete_user_template.return_value = True
         conn.enroll_user.return_value = True
-        executor = CommandExecutor(lambda: conn, lambda _body, _table: True)
+        pushed: list[tuple[str, str]] = []
+        executor = CommandExecutor(
+            lambda: conn,
+            lambda body, table: pushed.append((body, table)) or True,
+        )
 
         rc = executor.execute("ENROLL_FP PIN=2\tFID=0")
 
         self.assertEqual(rc, 0)
         conn.delete_user_template.assert_called_once_with(uid=2, temp_id=0)
         conn.enroll_user.assert_called_once_with(uid=2, temp_id=0, user_id="2")
+        self.assertEqual(pushed, [("TABLE=FP\nPIN=2", "FP")])
 
     def test_clear_fingerprint_slot_uses_uid_only_delete(self):
         conn = unittest.mock.MagicMock()
