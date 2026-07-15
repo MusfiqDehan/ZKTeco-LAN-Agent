@@ -74,7 +74,7 @@ class CommandExecutor:
         if not pin:
             return 1
         name = fields.get("Name") or ""
-        card = fields.get("Card") or ""
+        card_raw = fields.get("Card") or ""
 
         def _run(conn: Any) -> int:
             uid = int(pin)
@@ -86,7 +86,10 @@ class CommandExecutor:
                 "group_id": "",
                 "user_id": str(pin),
             }
-            # pyzk set_user signature varies; pass card when supported
+            # pyzk set_user does int(card); empty Card= from ADMS must become 0
+            card: int | str = 0
+            if card_raw.strip():
+                card = int(card_raw) if card_raw.strip().isdigit() else card_raw
             try:
                 conn.set_user(card=card, **kwargs)
             except TypeError:
