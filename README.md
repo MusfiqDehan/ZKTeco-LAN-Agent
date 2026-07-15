@@ -11,26 +11,41 @@ Package on PyPI: [`zkteco-lan-agent`](https://pypi.org/project/zkteco-lan-agent/
 
 ## Install (gym laptop)
 
+**Use Python 3.10–3.12** (3.12 recommended). Dependency `zk` → `thriftpy2` does not
+ship wheels for Python 3.14, so installs on 3.14 try to compile and fail without
+`Python.h` (`python3-dev`).
+
 ### With uv (recommended)
 
 ```bash
-uv tool install zkteco-lan-agent
+uv python install 3.12
+uv tool install --python 3.12 zkteco-lan-agent
 # or one-off:
-uvx zkteco-lan-agent --config devices.yaml
+uvx --python 3.12 zkteco-lan-agent --config devices.yaml
 ```
 
 ### With pip
 
 ```bash
-python -m pip install zkteco-lan-agent
+# create a 3.12 venv first if your system python is 3.14
+python3.12 -m venv .venv
+source .venv/bin/activate   # Windows: .venv\Scripts\activate
+pip install zkteco-lan-agent
 zkteco-lan-agent --config devices.yaml
+```
+
+### If you stay on system Python 3.14 and must compile
+
+```bash
+sudo apt install python3-dev build-essential
+uv pip install zkteco-lan-agent
 ```
 
 ### From this repo (development)
 
 ```bash
 cd zkteco_lan_agent
-uv sync
+uv sync --python 3.12
 uv run zkteco-lan-agent --config ../devices.yaml
 ```
 
