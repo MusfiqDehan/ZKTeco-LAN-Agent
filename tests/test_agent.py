@@ -100,6 +100,22 @@ class EnrollCommandTests(unittest.TestCase):
         conn.disable_device.assert_not_called()
         conn.enroll_user.assert_called_once_with(uid=2, temp_id=0, user_id="2")
 
+    def test_enroll_fp_deletes_existing_template_before_enroll(self):
+        conn = unittest.mock.MagicMock()
+        user = unittest.mock.MagicMock(user_id="2", uid=2)
+        template = unittest.mock.MagicMock(uid=2, fid=0)
+        conn.get_users.return_value = [user]
+        conn.get_templates.return_value = [template]
+        conn.delete_user_template.return_value = True
+        conn.enroll_user.return_value = True
+        executor = CommandExecutor(lambda: conn, lambda _body, _table: True)
+
+        rc = executor.execute("ENROLL_FP PIN=2\tFID=0")
+
+        self.assertEqual(rc, 0)
+        conn.delete_user_template.assert_called_once_with(uid=2, temp_id=0, user_id="2")
+        conn.enroll_user.assert_called_once_with(uid=2, temp_id=0, user_id="2")
+
     def test_enroll_fp_fails_when_user_missing(self):
         conn = unittest.mock.MagicMock()
         conn.get_users.return_value = []
