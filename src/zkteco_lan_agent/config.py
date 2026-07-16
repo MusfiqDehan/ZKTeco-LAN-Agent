@@ -24,6 +24,7 @@ class AgentConfig:
     poll_interval_seconds: int = 30
     command_poll_interval_seconds: int = 10
     heartbeat_interval_seconds: int = 60
+    userinfo_sync_interval_seconds: int = 300
     state_dir: str = "/tmp/zkteco_lan_agent"
 
 
@@ -76,5 +77,6 @@ def parse_config(data: dict[str, Any]) -> AgentConfig:
         poll_interval_seconds=int(data.get("poll_interval_seconds") or 30),
         command_poll_interval_seconds=int(data.get("command_poll_interval_seconds") or 10),
         heartbeat_interval_seconds=int(data.get("heartbeat_interval_seconds") or 60),
+        userinfo_sync_interval_seconds=int(data.get("userinfo_sync_interval_seconds") or 300),
         state_dir=str(data.get("state_dir") or "/tmp/zkteco_lan_agent"),
     )
