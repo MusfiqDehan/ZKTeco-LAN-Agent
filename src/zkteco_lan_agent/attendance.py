@@ -23,13 +23,27 @@ def build_attlog_body(lines: list[str]) -> str:
     return "TABLE=ATTLOG\n" + "\n".join(lines)
 
 
+def normalize_card_number(value) -> str:
+    """Coerce pyzk card values (int/str) into a USERINFO-safe card string."""
+    if value is None:
+        return ""
+    if isinstance(value, bool):
+        return ""
+    if isinstance(value, int):
+        return "" if value == 0 else str(value)
+    text = str(value).strip()
+    if text in {"", "0", "None", "none"}:
+        return ""
+    return text
+
+
 def build_userinfo_body(rows: list[dict]) -> str:
     """Build USERINFO push body from dicts with pin, name, card keys."""
     lines = ["TABLE=USERINFO"]
     for row in rows:
         pin = row.get("pin") or row.get("uid") or ""
-        name = (row.get("name") or "").replace("\t", " ").strip()[:40]
-        card = (row.get("card") or "").strip()
+        name = str(row.get("name") or "").replace("\t", " ").strip()[:40]
+        card = normalize_card_number(row.get("card"))
         lines.append(f"PIN={pin}\tName={name}\tCard={card}")
     return "\n".join(lines)
 
