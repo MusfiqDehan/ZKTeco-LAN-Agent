@@ -4,12 +4,12 @@ Bridge non-ADMS ZKTeco devices (Ethernet / PC Connection only) to Fitssort via
 ADMS HTTP. Runs on a gym LAN laptop or Pi.
 
 ```
-Device(s) ──TCP 4370──► Gym laptop (agent) ──HTTP :80 /iclock/*──► Production
+Device(s) ──TCP 4370──► Office Laptop (agent) ──HTTP :80 /iclock/*──► Production
 ```
 
 Package on PyPI: [`zkteco-lan-agent`](https://pypi.org/project/zkteco-lan-agent/)
 
-## Install (gym laptop)
+## Install (Office Laptop)
 
 **Use Python 3.10–3.12** (3.12 recommended). The ZKTeco client is PyPI package
 `pyzk` (`from zk import ZK`), not the unrelated `zk` package.
@@ -72,6 +72,11 @@ devices:
 ```
 
 Keep the laptop awake (disable sleep while the gym is open).
+
+The agent polls attendance regularly and also syncs device users (USERINFO,
+including card numbers) every `userinfo_sync_interval_seconds` (default 300).
+That is what populates the Fingerprints page with card holders from the device.
+You can also click **Sync Now** on the Devices page to pull users immediately.
 
 ---
 
