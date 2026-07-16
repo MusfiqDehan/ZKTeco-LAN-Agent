@@ -9,6 +9,7 @@ from zkteco_lan_agent.attendance import (
     build_fp_enrolled_body,
     build_userinfo_body,
     format_attlog_line,
+    normalize_card_number,
 )
 
 log = logging.getLogger("zkteco_lan_agent.commands")
@@ -250,7 +251,7 @@ class CommandExecutor:
                     {
                         "pin": getattr(user, "user_id", None) or getattr(user, "uid", ""),
                         "name": getattr(user, "name", "") or "",
-                        "card": getattr(user, "card", "") or "",
+                        "card": normalize_card_number(getattr(user, "card", None)),
                     }
                 )
             if rows:
