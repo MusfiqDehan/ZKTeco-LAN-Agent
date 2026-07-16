@@ -7,7 +7,7 @@ from typing import Any
 
 from zk import ZK
 
-from zkteco_lan_agent.attendance import build_attlog_body, format_attlog_line
+from zkteco_lan_agent.attendance import build_attlog_body, build_userinfo_body, format_attlog_line, normalize_card_number
 from zkteco_lan_agent.command_executor import CommandExecutor
 from zkteco_lan_agent.config import AgentConfig, DeviceConfig
 from zkteco_lan_agent.server_client import ServerClient
@@ -24,6 +24,7 @@ class DeviceWorker:
         self.state = DeviceState(agent.state_dir, device.device_sn)
         self._last_heartbeat = 0.0
         self._last_command_poll = 0.0
+        self._last_userinfo_sync = 0.0
 
     def _connect(self) -> Any:
         zk = ZK(
@@ -112,6 +113,42 @@ class DeviceWorker:
         return_code = executor.execute(pending.cmd)
         self.server.ack_command(self.device.device_sn, pending.id, return_code)
 
+    def sync_userinfo(self) -> None:
+        """Pull device users (including card numbers) and push USERINFO to Fitssort."""
+        conn = None
+        try:
+            conn = self._connect()
+            users = conn.get_users() or []
+            rows = []
+            for user in users:
+                rows.append(
+                    {
+                        "pin": getattr(user, "user_id", None) or getattr(user, "uid", ""),
+                        "name": getattr(user, "name", "") or "",
+                        "card": normalize_card_number(getattr(user, "card", None)),
+                    }
+                )
+            if not rows:
+                log.info("SN=%s userinfo sync: no users on device", self.device.device_sn)
+                return
+            body = build_userinfo_body(rows)
+            if self.server.push_cdata(self.device.device_sn, body, table="USERINFO"):
+                with_cards = sum(1 for row in rows if row["card"])
+                log.info(
+                    "SN=%s userinfo sync pushed %d users (%d with card)",
+                    self.device.device_sn,
+                    len(rows),
+                    with_cards,
+                )
+        except Exception as exc:
+            log.error("Userinfo sync error SN=%s: %s", self.device.device_sn, exc)
+        finally:
+            if conn:
+                try:
+                    conn.disconnect()
+                except Exception:
+                    pass
+
     def _maybe_heartbeat(self, *, force: bool = False) -> None:
         now = time.monotonic()
         if force or now - self._last_heartbeat >= self.agent.heartbeat_interval_seconds:
@@ -124,4 +161,8 @@ class DeviceWorker:
         if now - self._last_command_poll >= self.agent.command_poll_interval_seconds:
             self.poll_commands()
             self._last_command_poll = now
+        interval = max(0, int(self.agent.userinfo_sync_interval_seconds))
+        if interval == 0 or now - self._last_userinfo_sync >= interval:
+            self.sync_userinfo()
+            self._last_userinfo_sync = now
         self._maybe_heartbeat()
