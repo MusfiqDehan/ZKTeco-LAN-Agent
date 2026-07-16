@@ -13,8 +13,10 @@ if str(SRC) not in sys.path:
 from zkteco_lan_agent.attendance import (
     build_attlog_body,
     build_fp_enrolled_body,
+    build_userinfo_body,
     entry_method_for_verify,
     format_attlog_line,
+    normalize_card_number,
 )
 from zkteco_lan_agent.config import ConfigError, parse_config
 from zkteco_lan_agent.command_executor import (
@@ -77,6 +79,22 @@ class AttlogFormatTests(unittest.TestCase):
         self.assertEqual(entry_method_for_verify(2), "card")
         self.assertEqual(entry_method_for_verify(1), "fingerprint")
         self.assertEqual(entry_method_for_verify(None), "fingerprint")
+
+    def test_userinfo_body_accepts_integer_card(self):
+        body = build_userinfo_body(
+            [
+                {"pin": "10", "name": "Card User", "card": 1234567890},
+                {"pin": "11", "name": "No Card", "card": 0},
+            ]
+        )
+        self.assertIn("PIN=10\tName=Card User\tCard=1234567890", body)
+        self.assertIn("PIN=11\tName=No Card\tCard=", body)
+
+    def test_normalize_card_number(self):
+        self.assertEqual(normalize_card_number(12345), "12345")
+        self.assertEqual(normalize_card_number(0), "")
+        self.assertEqual(normalize_card_number("RFID-9"), "RFID-9")
+        self.assertEqual(normalize_card_number(None), "")
 
 
 class CommandParseTests(unittest.TestCase):
