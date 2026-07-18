@@ -17,6 +17,7 @@ from zkteco_lan_agent.attendance import (
     entry_method_for_verify,
     format_attlog_line,
     normalize_card_number,
+    resolve_pyzk_attendance_fields,
 )
 from zkteco_lan_agent.config import ConfigError, parse_config
 from zkteco_lan_agent.command_executor import (
@@ -79,6 +80,29 @@ class AttlogFormatTests(unittest.TestCase):
         self.assertEqual(entry_method_for_verify(2), "card")
         self.assertEqual(entry_method_for_verify(1), "fingerprint")
         self.assertEqual(entry_method_for_verify(None), "fingerprint")
+
+    def test_resolve_pyzk_uses_status_as_verify_not_punch(self):
+        """Card punches must not be mislabeled fingerprint (status=verify, punch=inout)."""
+
+        class FakeAtt:
+            def __init__(self, status, punch, verify=None):
+                self.status = status
+                self.punch = punch
+                self.verify = verify
+
+        status, verify, in_out = resolve_pyzk_attendance_fields(FakeAtt(status=2, punch=0))
+        self.assertEqual(verify, 2)
+        self.assertEqual(entry_method_for_verify(verify), "card")
+        self.assertEqual(in_out, 0)
+
+        status, verify, in_out = resolve_pyzk_attendance_fields(FakeAtt(status=1, punch=1))
+        self.assertEqual(verify, 1)
+        self.assertEqual(entry_method_for_verify(verify), "fingerprint")
+        self.assertEqual(in_out, 1)
+
+        # Explicit verify attribute wins
+        _, verify, _ = resolve_pyzk_attendance_fields(FakeAtt(status=0, punch=0, verify=2))
+        self.assertEqual(verify, 2)
 
     def test_userinfo_body_accepts_integer_card(self):
         body = build_userinfo_body(
