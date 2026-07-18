@@ -7,7 +7,14 @@ from typing import Any
 
 from zk import ZK
 
-from zkteco_lan_agent.attendance import build_attlog_body, build_userinfo_body, format_attlog_line, normalize_card_number
+from zkteco_lan_agent.attendance import (
+    build_attlog_body,
+    build_userinfo_body,
+    entry_method_for_verify,
+    format_attlog_line,
+    normalize_card_number,
+    resolve_pyzk_attendance_fields,
+)
 from zkteco_lan_agent.command_executor import CommandExecutor
 from zkteco_lan_agent.config import AgentConfig, DeviceConfig
 from zkteco_lan_agent.server_client import ServerClient
@@ -67,19 +74,23 @@ class DeviceWorker:
                     ts = att.timestamp
                     if ts.tzinfo is None:
                         ts = ts.replace(tzinfo=timezone.utc)
-                    # pyzk: status often holds punch type; punch may hold verify on some firmwares
-                    verify = getattr(att, "punch", None)
-                    status = int(getattr(att, "status", 0) or 0)
-                    # Prefer explicit verify attribute if present
-                    if hasattr(att, "verify") and getattr(att, "verify") is not None:
-                        verify = getattr(att, "verify")
+                    status, verify, in_out = resolve_pyzk_attendance_fields(att)
+                    method = entry_method_for_verify(verify)
+                    log.info(
+                        "SN=%s attlog uid=%s verify=%s method=%s punch/in_out=%s",
+                        self.device.device_sn,
+                        att.user_id,
+                        verify,
+                        method,
+                        in_out,
+                    )
                     lines.append(
                         format_attlog_line(
                             att.user_id,
                             ts,
                             status=status,
-                            verify=int(verify) if verify is not None else None,
-                            in_out=int(getattr(att, "punch", 0) or 0) if verify is None else 0,
+                            verify=verify,
+                            in_out=in_out,
                         )
                     )
                     if newest is None or ts > newest:
