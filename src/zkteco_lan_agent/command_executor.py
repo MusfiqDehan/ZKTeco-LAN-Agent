@@ -10,6 +10,7 @@ from zkteco_lan_agent.attendance import (
     build_userinfo_body,
     format_attlog_line,
     normalize_card_number,
+    resolve_pyzk_attendance_fields,
 )
 
 log = logging.getLogger("zkteco_lan_agent.commands")
@@ -224,16 +225,14 @@ class CommandExecutor:
                 ts = att.timestamp
                 if start and ts.strftime("%Y-%m-%d %H:%M:%S") < start:
                     continue
-                verify = getattr(att, "punch", None)
-                if verify is None:
-                    verify = getattr(att, "status", None)
+                status, verify, in_out = resolve_pyzk_attendance_fields(att)
                 lines.append(
                     format_attlog_line(
                         att.user_id,
                         ts,
-                        status=int(getattr(att, "status", 0) or 0),
-                        verify=int(verify) if verify is not None else None,
-                        in_out=int(getattr(att, "punch", 0) or 0),
+                        status=status,
+                        verify=verify,
+                        in_out=in_out,
                     )
                 )
             if lines:
