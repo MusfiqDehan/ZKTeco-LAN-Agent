@@ -1,10 +1,10 @@
-# ZKTeco LAN Agent — gym laptop deployment
+# ZKTeco LAN Agent for Your Local Environment
 
-Bridge non-ADMS ZKTeco devices (Ethernet / PC Connection only) to Fitssort via
-ADMS HTTP. Runs on a gym LAN laptop or Pi.
+Bridge non-ADMS ZKTeco devices (Ethernet / PC Connection only) to your application via
+ADMS HTTP. Runs on a Office LAN laptop or Pi. If LAN is not available, the device should 
 
 ```
-Device(s) ──TCP 4370──► Office Laptop (agent) ──HTTP :80 /iclock/*──► Production
+Device(s) ──TCP 4370──► Office Laptop (agent) ──HTTP :80 /iclock/*──► Production Cloud Server
 ```
 
 Package on PyPI: [`zkteco-lan-agent`](https://pypi.org/project/zkteco-lan-agent/)
@@ -54,21 +54,30 @@ Copy and edit config:
 cp devices.yaml.example devices.yaml   # from repo root, or create manually
 ```
 
-Example `devices.yaml`:
+Example `devices.yaml`/`devices.yml`:
 
 ```yaml
-server_url: http://tenant.fitssort.com
+server_url: http://subdomain.domain.com
 poll_interval_seconds: 30
 command_poll_interval_seconds: 10
 heartbeat_interval_seconds: 60
 
 devices:
-  - name: Front Door K40
+  - name: Device One
     device_ip: 192.168.1.100
     device_port: 4370
     device_sn: "CHANGEME_SN"
     comm_password: 0
     timezone: Asia/Dhaka
+
+  - name: Device Two
+    device_ip: 192.168.1.100
+    device_port: 4370
+    device_sn: "CHANGEME_SN"
+    comm_password: 0
+    timezone: Asia/Dhaka 
+
+  ..........
 ```
 
 Keep the laptop awake (disable sleep while the gym is open).
@@ -97,18 +106,23 @@ sudo systemctl enable --now zkteco-lan-agent
 sudo systemctl status zkteco-lan-agent
 ```
 
-### Windows — Task Scheduler (built-in)
+### Windows — Task Scheduler (built-in) — Always Use the Latest Version
 
-1. Create `start-lan-agent.bat`:
+If you installed `zkteco-lan-agent` using `uv`, you should use `uv` for upgrades, as `zkteco-lan-agent upgrade` is not a built-in command of the agent and does not exist. Instead, run `uv pip install --upgrade zkteco-lan-agent` before starting the agent.
+
+1. Create `start-lan-agent.bat` like this:
 
 ```bat
 @echo off
 cd /d C:\gym\agent
+uv pip install --upgrade zkteco-lan-agent
 zkteco-lan-agent --config devices.yaml
 ```
 
-2. Task Scheduler → **Create Task** → run at startup → Action: start the `.bat`.
+2. In Task Scheduler, **Create Task**, set to run at startup: Action: start the `.bat` file created above.
 3. Enable restart on failure; uncheck “Stop if runs longer than…”.
+
+This setup will upgrade `zkteco-lan-agent` to the latest available version every time before launching it, as long as you installed using `uv`.
 
 ### Windows — NSSM (Windows Service)
 
