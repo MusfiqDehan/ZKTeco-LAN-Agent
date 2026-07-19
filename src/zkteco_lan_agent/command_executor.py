@@ -60,6 +60,8 @@ class CommandExecutor:
         """Return ADMS Return code (0 = success)."""
         upper = cmd.upper()
         try:
+            if "DELETE USERINFO" in upper:
+                return self._exec_delete_userinfo(cmd)
             if "UPDATE USERINFO" in upper or upper.startswith("DATA UPDATE USERINFO"):
                 return self._exec_userinfo(cmd)
             if upper.startswith("ENROLL_FP"):
@@ -125,6 +127,38 @@ class CommandExecutor:
                         conn.set_user(uid, name, 0, "", card, "", str(pin))
                     except Exception:
                         log.warning("Could not set card=%s for pin=%s", card, pin)
+            return 0
+
+        return self._with_conn(_run)
+
+    def _exec_delete_userinfo(self, cmd: str) -> int:
+        fields = parse_userinfo_fields(cmd)
+        pin = fields.get("PIN") or fields.get("Pin") or ""
+        if not pin:
+            return 1
+
+        def _run(conn: Any) -> int:
+            uid = int(pin)
+            user_id = str(pin)
+            # Prefer uid-based delete; fall back to user_id kw if supported.
+            try:
+                deleted = bool(conn.delete_user(uid))
+            except TypeError:
+                try:
+                    deleted = bool(conn.delete_user(uid=uid))
+                except TypeError:
+                    deleted = bool(conn.delete_user(user_id=user_id))
+            if not deleted:
+                # Some firmwares return False even when user is gone; treat missing user as success.
+                users = conn.get_users() or []
+                still_present = any(
+                    str(getattr(u, "user_id", "")) == user_id or getattr(u, "uid", None) == uid
+                    for u in users
+                )
+                if still_present:
+                    log.error("DELETE USERINFO: user PIN=%s still present after delete", pin)
+                    return 1
+            log.info("DELETE USERINFO: removed PIN=%s", pin)
             return 0
 
         return self._with_conn(_run)
