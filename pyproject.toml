@@ -1,14 +1,14 @@
 [project]
 name = "zkteco-lan-agent"
-version = "1.1.9"
-description = "Bridge non-ADMS ZKTeco devices to Fitssort ADMS HTTP (attendance, commands, enroll)"
+version = "1.2.1"
+description = "Bridge non-ADMS/non-Cloud-Server ZKTeco devices to application's ADMS HTTP (attendance, commands, enroll)"
 readme = "README.md"
 requires-python = ">=3.10,<3.14"
 license = { text = "Proprietary" }
 authors = [
   { name = "Md. Musfiqur Rahaman / MusfiqDehan" },
 ]
-keywords = ["zkteco", "adms", "attendance", "fitssort", "biometric"]
+keywords = ["zkteco", "adms", "attendance", "tcp", "biometric", "card"]
 classifiers = [
   "Development Status :: 4 - Beta",
   "Environment :: Console",
