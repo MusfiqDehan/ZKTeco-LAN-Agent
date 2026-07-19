@@ -215,6 +215,26 @@ class EnrollCommandTests(unittest.TestCase):
         self.assertEqual(rc, 1)
         conn.enroll_user.assert_not_called()
 
+    def test_delete_userinfo_calls_delete_user(self):
+        conn = unittest.mock.MagicMock()
+        conn.delete_user.return_value = True
+        executor = CommandExecutor(lambda: conn, lambda _body, _table: True)
+
+        rc = executor.execute("DATA DELETE USERINFO PIN=42")
+
+        self.assertEqual(rc, 0)
+        conn.delete_user.assert_called_once_with(42)
+
+    def test_delete_userinfo_succeeds_when_false_but_user_gone(self):
+        conn = unittest.mock.MagicMock()
+        conn.delete_user.return_value = False
+        conn.get_users.return_value = []
+        executor = CommandExecutor(lambda: conn, lambda _body, _table: True)
+
+        rc = executor.execute("DELETE USERINFO PIN=7")
+
+        self.assertEqual(rc, 0)
+
 
 if __name__ == "__main__":
     unittest.main()
